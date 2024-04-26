@@ -29,6 +29,10 @@
 # Pass --define 'with_cluster 1' to build with cluster support
 %{?with_cluster: %global cluster 1}
 
+%ifarch loongarch64
+%define _libdir /usr/lib
+%endif
+
 %if 0%{?cluster}
 %global with_meb    0
 %global with_router 0
@@ -48,7 +52,12 @@
 %{!?src_base:                    %global src_base mysql%{?cluster:-cluster-gpl}}
 
 %global src_dir               %{src_base}-8.0.30
+
+
+%ifnarch loongarch64
 %global license_files_server  %{src_dir}/LICENSE %{src_dir}/README
+%endif
+
 
 %if 0%{?commercial}
 %global license_type          Commercial
@@ -64,10 +73,13 @@ Version:        8.0.30
 Release:        10%{?dist}
 License:        Copyright (c) 2000, 2022, %{mysql_vendor}. Under %{?license_type} license as shown in the Description field.
 Source0:        https://cdn.mysql.com/Downloads/MySQL-8.0/%{src_dir}.tar.gz
-Source1:        https://boostorg.jfrog.io/artifactory/main/release/1.77.0/source/boost_1_77_0.tar.bz2
+Source1:        https://github.com/Loongson-Cloud-Community/boost/releases/download/1.77.0/boost_1_77_0.tar.bz2
 URL:            http://www.mysql.com/
 Packager:       MySQL Release Engineering <mysql-build@oss.oracle.com>
 Vendor:         %{mysql_vendor}
+
+Patch1:  0001-add-loongarch64-support.patch
+
 BuildRequires:  bison >= 2.1
 BuildRequires:  cmake
 BuildRequires:  cyrus-sasl-devel
@@ -491,6 +503,10 @@ strengths of both ClusterJ and JDBC
 %prep
 %setup -q -T -a 0 -a 1 -c -n %{src_dir}
 
+%ifarch loongarch64
+%patch1 -p1
+%endif
+
 %build
 # Fail quickly and obviously if user tries to build as root
 %if 0%{?runselftest}
@@ -524,6 +540,11 @@ mkdir debug
            -DWITH_SYSTEMD=1 \
            -DWITH_MEB=%{with_meb} \
            -DWITH_ROUTER=%{with_router} \
+%ifarch loongarch64
+           -DWITH_AUTHENTICATION_CLIENT_PLUGINS=1 \
+           -DWITH_AUTHENTICATION_PAM=1 \
+           -DWITH_AUTHENTICATION_LDAP=1 \
+%endif
 %if 0%{?cluster:1}
            -DWITH_NDBCLUSTER=1 \
 %endif
@@ -540,6 +561,7 @@ mkdir debug
            -DCOMPILATION_COMMENT="%{compilation_comment_debug}" \
            -DCOMPILATION_COMMENT_SERVER="%{compilation_comment_server_debug}" \
            -DMYSQL_SERVER_SUFFIX="%{?server_suffix}"
+
   echo BEGIN_DEBUG_CONFIG ; egrep '^#define' include/config.h ; echo END_DEBUG_CONFIG
   make %{?_smp_mflags} VERBOSE=1
 )
@@ -563,6 +585,11 @@ mkdir release
            -DWITH_SYSTEMD=1 \
            -DWITH_MEB=%{with_meb} \
            -DWITH_ROUTER=%{with_router} \
+%ifarch loongarch64
+           -DWITH_AUTHENTICATION_CLIENT_PLUGINS=1 \
+           -DWITH_AUTHENTICATION_PAM=1 \
+           -DWITH_AUTHENTICATION_LDAP=1 \
+%endif
 %if 0%{?cluster:1}
            -DWITH_NDBCLUSTER=1 \
 %endif
@@ -582,6 +609,7 @@ mkdir release
   echo BEGIN_NORMAL_CONFIG ; egrep '^#define' include/config.h ; echo END_NORMAL_CONFIG
   make %{?_smp_mflags} VERBOSE=1
 )
+
 
 %install
 MBD=$RPM_BUILD_DIR/%{src_dir}
